@@ -3,7 +3,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import PersonalitySigil from "@/components/PersonalitySigil";
+
+const logo = "/promptquest-logo.png";
 
 type ConversationRole = "user" | "assistant" | "system";
 type OceanTrait =
@@ -12,15 +15,6 @@ type OceanTrait =
   | "Extraversion"
   | "Agreeableness"
   | "Neuroticism";
-
-type Conversation = {
-  role: ConversationRole;
-  content: string;
-};
-
-const BlinkingCursor = () => (
-  <span className="animate-pulse text-green-400">█</span>
-);
 
 export default function Home() {
   const [input, setInput] = useState("");
@@ -39,7 +33,9 @@ export default function Home() {
     Neuroticism: 50,
   });
   const [archetype, setArchetype] = useState<string | null>(null);
-  const [conversation, setConversation] = useState<Conversation[]>([]);
+  const [conversation, setConversation] = useState<
+    { role: ConversationRole; content: string }[]
+  >([]);
   const [riddleStage, setRiddleStage] = useState<number>(() => {
     if (typeof window !== "undefined") {
       return parseInt(localStorage.getItem("promptquest-stage") || "0");
@@ -48,7 +44,31 @@ export default function Home() {
   });
   const [displayedLine, setDisplayedLine] = useState<string | null>(null);
 
+  const [booting, setBooting] = useState(true);
+  const [bootLines, setBootLines] = useState<string[]>([]);
+
   const endOfLogRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const lines = [
+      "> SYSTEM CHECK...",
+      "> LOADING CORE MODULES...",
+      "> INITIALIZING NEURAL INTERFACE...",
+      "> ALIGNING PERSONALITY MATRIX...",
+      "> WAKING ARCHETYPE ENGINE...",
+      "> LINK ESTABLISHED.",
+    ];
+
+    let i = 0;
+    const interval = setInterval(() => {
+      setBootLines((prev) => [...prev, lines[i]]);
+      i++;
+      if (i === lines.length) {
+        clearInterval(interval);
+        setTimeout(() => setBooting(false), 1000);
+      }
+    }, 400);
+  }, []);
 
   const scrollToBottom = () => {
     endOfLogRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -95,7 +115,7 @@ export default function Home() {
     if (!input) return;
     setLoading(true);
 
-    const updatedConversation: Conversation[] = [
+    const updatedConversation = [
       ...conversation,
       { role: "user", content: input },
     ];
@@ -142,7 +162,7 @@ export default function Home() {
 
     if (data.ocean) {
       const startOcean = { ...ocean };
-      setOcean(data.ocean); // update state immediately
+      setOcean(data.ocean);
       animateOcean(data.ocean);
 
       const deltas: string[] = [];
@@ -164,7 +184,9 @@ export default function Home() {
       }
     }
 
-    if (data.archetype) setArchetype(data.archetype);
+    if (data.archetype && data.archetype.includes("–")) {
+      setArchetype(data.archetype);
+    }
 
     setInput("");
     setLoading(false);
@@ -182,59 +204,86 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-black text-green-400 font-mono p-6">
+    <div className="min-h-screen bg-black text-green-400 font-mono p-6 crt-flicker">
       <div className="max-w-4xl mx-auto">
-        <div className="mb-4 p-4 border border-green-500 rounded">
-          <h2 className="text-xl mb-2">🧠 Personality Profile:</h2>
-          <div className="space-y-1">
-            {Object.entries(ocean).map(([trait, value]) => (
-              <div key={trait} className="flex items-center gap-2 text-sm">
-                <div className="w-40 text-white">{trait}</div>
-                <div className="flex-1 h-2 bg-green-900 rounded">
-                  <div
-                    className="h-full bg-green-400 rounded transition-all duration-300"
-                    style={{ width: `${value}%` }}
-                  ></div>
-                </div>
-                <span className="w-10 text-right">{Math.round(value)}%</span>
+        {booting ? (
+          <div className="bg-black text-green-400 p-4 h-[400px] border border-green-700 rounded overflow-y-scroll mb-6 animate-fade-in-slow">
+            {bootLines.map((line, i) => (
+              <div key={i} className="animate-fade-in mb-1 whitespace-pre">
+                {line}
               </div>
             ))}
+            <div className="animate-pulse">█</div>
           </div>
-          <PersonalitySigil archetype={archetype} />
-        </div>
-
-        <div className="bg-gray-900 p-4 rounded border border-green-600 mb-4 h-[400px] overflow-y-scroll">
-          {history.map((line, i) => (
-            <div key={i} className="mb-2 whitespace-pre-wrap">
-              {line}
+        ) : (
+          <>
+            <div className="text-center mb-6 animate-fade-in-slow">
+              <Image
+                src={logo}
+                alt="PromptQuest logo"
+                width={160}
+                height={160}
+                className="mx-auto mb-2 rounded shadow-lg animate-logo-flicker"
+              />
+              <h1 className="text-3xl font-bold tracking-wide">PROMPTQUEST</h1>
+              <h3 className="text-l mb-3">Version 0.9 Beta</h3>
             </div>
-          ))}
-          {displayedLine && (
-            <div className="whitespace-pre-wrap mb-2">{displayedLine}</div>
-          )}
-          {loading && (
-            <div className="mb-2 whitespace-pre-wrap">
-              <BlinkingCursor />
-            </div>
-          )}
-          <div ref={endOfLogRef} />
-        </div>
 
-        <div className="flex gap-2">
-          <input
-            className="flex-grow p-2 bg-black border border-green-500 text-white rounded"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && submitPrompt()}
-            placeholder="Enter your prompt..."
-          />
-          <button
-            className="px-4 py-2 bg-green-700 text-white rounded"
-            onClick={submitPrompt}
-          >
-            Send
-          </button>
-        </div>
+            <div className="mb-4 p-4 border border-green-500 rounded animate-fade-in-slow">
+              <h2 className="text-xl mb-2">🧠 Personality Profile:</h2>
+              <div className="space-y-1">
+                {Object.entries(ocean).map(([trait, value]) => (
+                  <div key={trait} className="flex items-center gap-2 text-sm">
+                    <div className="w-40 text-white">{trait}</div>
+                    <div className="flex-1 h-2 bg-green-900 rounded">
+                      <div
+                        className="h-full bg-green-400 rounded transition-all duration-300"
+                        style={{ width: `${value}%` }}
+                      ></div>
+                    </div>
+                    <span className="w-10 text-right">
+                      {Math.round(value)}%
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <PersonalitySigil archetype={archetype} />
+            </div>
+
+            <div className="bg-gray-900 p-4 rounded border border-green-600 mb-4 h-[400px] overflow-y-scroll animate-fade-in-slow">
+              {history.map((line, i) => (
+                <div key={i} className="mb-2 whitespace-pre-wrap">
+                  {line}
+                </div>
+              ))}
+              {displayedLine && (
+                <div className="whitespace-pre-wrap mb-2">{displayedLine}</div>
+              )}
+              {loading && (
+                <div className="mb-2 whitespace-pre-wrap">
+                  <span className="animate-pulse">█</span>
+                </div>
+              )}
+              <div ref={endOfLogRef} />
+            </div>
+
+            <div className="flex gap-2 animate-fade-in-slow">
+              <input
+                className="flex-grow p-2 bg-black border border-green-500 text-white rounded"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && submitPrompt()}
+                placeholder="Enter your prompt..."
+              />
+              <button
+                className="px-4 py-2 bg-green-700 text-white rounded"
+                onClick={submitPrompt}
+              >
+                Send
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

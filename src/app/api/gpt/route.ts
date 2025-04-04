@@ -100,20 +100,137 @@ Again: return ONLY the JSON. Do NOT wrap it in triple backticks.`,
     }
   }
 
-  let archetype = null;
+  // === Archetype + Subtype Inference ===
+  let archetypeBase = "";
+  let subtype = "";
+
   if (ocean) {
-    const topTrait = Object.entries(ocean).sort((a, b) => b[1] - a[1])[0][0];
-    const archetypes: Record<string, string> = {
-      Openness:
-        "The Visionary – Imaginative, curious, driven by abstract ideas.",
-      Conscientiousness:
-        "The Architect – Structured, reliable, and disciplined.",
-      Extraversion: "The Spark – Outgoing, expressive, and energetic.",
-      Agreeableness: "The Harmonizer – Empathetic, generous, and cooperative.",
-      Neuroticism:
-        "The Reactor – Sensitive, emotionally aware, and introspective.",
+    const {
+      Openness,
+      Conscientiousness,
+      Extraversion,
+      Agreeableness,
+      Neuroticism,
+    } = ocean;
+
+    const extremeThreshold = 90;
+    const extremeTraits = Object.entries(ocean).filter(
+      ([_, value]) => value >= extremeThreshold,
+    );
+
+    if (extremeTraits.length >= 2) {
+      archetypeBase = "Ascended";
+      subtype = `of ${extremeTraits.map(([t]) => t).join(" & ")}`;
+    } else if (Conscientiousness > 70) {
+      archetypeBase = "The Architect";
+      if (Openness > 65) subtype = "The Builder";
+      else if (Extraversion < 40) subtype = "The Planner";
+      else if (Agreeableness > 60) subtype = "The Strategist";
+      else if (Neuroticism < 40) subtype = "The Executor";
+    } else if (Openness > 70) {
+      archetypeBase = "The Visionary";
+      if (Neuroticism > 60) subtype = "The Dreamer";
+      else if (Conscientiousness > 60) subtype = "The Inventor";
+      else if (Extraversion < 40) subtype = "The Mystic";
+      else if (Extraversion > 60) subtype = "The Explorer";
+    } else if (Extraversion > 70) {
+      archetypeBase = "The Spark";
+      if (Openness > 60) subtype = "The Performer";
+      else if (Conscientiousness > 60) subtype = "The Leader";
+      else if (Agreeableness > 60) subtype = "The Connector";
+      else if (Neuroticism > 60) subtype = "The Storm";
+    } else if (Agreeableness > 70) {
+      archetypeBase = "The Harmonizer";
+      if (Neuroticism > 60) subtype = "The Healer";
+      else if (Conscientiousness > 60) subtype = "The Diplomat";
+      else if (Extraversion > 60) subtype = "The Friend";
+      else if (Extraversion < 40) subtype = "The Listener";
+    } else if (Neuroticism > 70) {
+      archetypeBase = "The Reactor";
+      if (Agreeableness > 60) subtype = "The Empath";
+      else if (Openness > 60) subtype = "The Artist";
+      else if (Conscientiousness > 60) subtype = "The Survivor";
+      else if (Extraversion < 40) subtype = "The Shadow";
+    }
+
+    if (!archetypeBase) {
+      archetypeBase = "The Wanderer";
+      subtype = "The Undefined";
+    }
+  }
+
+  let archetype = null;
+
+  if (ocean) {
+    const emojis: Record<string, string> = {
+      Builder: "🧱",
+      Planner: "📐",
+      Strategist: "♟️",
+      Executor: "🛠️",
+      Dreamer: "🌙",
+      Inventor: "⚙️",
+      Mystic: "🔮",
+      Explorer: "🧭",
+      Performer: "🎭",
+      Leader: "👑",
+      Connector: "🤝",
+      Storm: "🌩️",
+      Healer: "💊",
+      Diplomat: "🕊️",
+      Friend: "😊",
+      Listener: "👂",
+      Empath: "💞",
+      Artist: "🎨",
+      Survivor: "🧱",
+      Shadow: "🌑",
+      Undefined: "❓",
+      Ascended: "✨",
     };
-    archetype = archetypes[topTrait] || null;
+
+    const traitDescriptions: Record<string, string> = {
+      Builder:
+        "Structured and imaginative — excels in bridging planning and creativity.",
+      Planner:
+        "Methodical and introverted — thrives on foresight and quiet execution.",
+      Strategist:
+        "Disciplined and empathetic — guides others through collaborative tactics.",
+      Executor:
+        "Decisive and unshaken — thrives in focused, low-emotion environments.",
+      Dreamer:
+        "Emotionally rich and wildly imaginative — drifts through vast inner worlds.",
+      Inventor: "Creative and dependable — transforms ideas into reality.",
+      Mystic: "Deeply reflective — finds meaning in inner complexity.",
+      Explorer:
+        "Adventurous and curious — driven to discover new people and places.",
+      Performer: "Expressive and inspired — lights up every room with flair.",
+      Leader: "Charismatic and driven — brings people together around ideas.",
+      Connector: "Empathic and sociable — builds bonds with ease.",
+      Storm: "Emotional and extroverted — a powerful and unpredictable force.",
+      Healer: "Sensitive and caring — focused on emotional restoration.",
+      Diplomat: "Balanced and thoughtful — mediates conflict with grace.",
+      Friend: "Warm and inviting — creates spaces of belonging.",
+      Listener: "Quiet and intuitive — hears more than words.",
+      Empath: "Emotionally attuned — feels what others cannot say.",
+      Artist: "Sensitive and creative — channels emotion into form.",
+      Survivor: "Resilient and driven — endures challenges with stoic resolve.",
+      Shadow: "Reserved and complex — lives in deep reflection.",
+      Undefined: "No dominant traits yet — latent potential awaiting shape.",
+      Ascended:
+        "Exhibits rare extremity in multiple traits — an outlier beyond known bounds.",
+    };
+
+    const emoji = subtype in emojis ? `${emojis[subtype]} ` : "";
+    const commentary = traitDescriptions[subtype]
+      ? ` (${traitDescriptions[subtype]})`
+      : "";
+    archetype = `${emoji}${archetypeBase} – ${subtype}${commentary}`;
+
+    // Special terminal log for Ascended class
+    if (archetypeBase === "Ascended") {
+      console.log(
+        "🧬 You have transcended into the rare class: Ascended – unlocking hidden narrative threads...",
+      );
+    }
   }
 
   return NextResponse.json({

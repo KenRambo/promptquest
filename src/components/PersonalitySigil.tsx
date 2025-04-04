@@ -1,34 +1,48 @@
-// components/PersonalitySigil.tsx
+// File: app/components/PersonalitySigil.tsx
 
-import React from "react";
-
-interface SigilProps {
+interface Props {
   archetype: string | null;
 }
 
-const archetypeStyles: Record<string, { icon: string; color: string }> = {
-  "The Visionary": { icon: "🌌", color: "text-purple-400" },
-  "The Architect": { icon: "🏛️", color: "text-yellow-300" },
-  "The Spark": { icon: "⚡", color: "text-pink-400" },
-  "The Harmonizer": { icon: "💮", color: "text-green-300" },
-  "The Reactor": { icon: "💧", color: "text-blue-400" },
-};
+function getEmojiForSubtype(archetype: string): string {
+  if (archetype.includes("Builder")) return "🧱";
+  if (archetype.includes("Planner")) return "📐";
+  if (archetype.includes("Strategist")) return "♟️";
+  if (archetype.includes("Executor")) return "🛠️";
+  if (archetype.includes("Dreamer")) return "🌙";
+  if (archetype.includes("Inventor")) return "⚙️";
+  if (archetype.includes("Mystic")) return "🔮";
+  if (archetype.includes("Explorer")) return "🧭";
+  if (archetype.includes("Performer")) return "🎭";
+  if (archetype.includes("Leader")) return "👑";
+  if (archetype.includes("Connector")) return "🤝";
+  if (archetype.includes("Storm")) return "🌩️";
+  if (archetype.includes("Healer")) return "💊";
+  if (archetype.includes("Diplomat")) return "🕊️";
+  if (archetype.includes("Friend")) return "😊";
+  if (archetype.includes("Listener")) return "👂";
+  if (archetype.includes("Empath")) return "💞";
+  if (archetype.includes("Artist")) return "🎨";
+  if (archetype.includes("Survivor")) return "🧱";
+  if (archetype.includes("Shadow")) return "🌑";
+  if (archetype.includes("Ascended")) return "✨";
+  return "❓";
+}
 
-export default function PersonalitySigil({ archetype }: SigilProps) {
-  if (!archetype) return null;
-
-  const label = archetype.split("–")[0].trim();
-  const description = archetype.split("–")[1]?.trim();
-  const style = archetypeStyles[label] || { icon: "🌀", color: "text-white" };
+export default function PersonalitySigil({ archetype }: Props) {
+  if (!archetype || archetype.includes("Undefined")) {
+    return (
+      <div className="mt-4 text-center text-green-600 animate-pulse italic">
+        Analyzing psyche...
+      </div>
+    );
+  }
 
   return (
-    <div className="mt-4 p-4 border border-green-600 rounded shadow-inner bg-gray-900 animate-pulse">
-      <div className="flex items-center space-x-4">
-        <span className={`text-3xl ${style.color}`}>{style.icon}</span>
-        <div>
-          <h3 className={`text-xl font-bold ${style.color}`}>{label}</h3>
-          <p className="text-green-300 italic mt-1">{description}</p>
-        </div>
+    <div className="mt-4 text-lg text-center">
+      <div className="text-green-400">
+        {getEmojiForSubtype(archetype)}{" "}
+        <span className="italic">{archetype}</span>
       </div>
     </div>
   );
