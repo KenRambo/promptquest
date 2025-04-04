@@ -46,9 +46,8 @@ export default function Home() {
 
     setConversation([
       ...updatedConversation,
-      { role: "assistant" as const, content: response },
+      { role: "assistant", content: response },
     ]);
-
     setHistory((prev) => [...prev, `> ${input}`, response]);
 
     const isRiddle = /riddle/i.test(response);
