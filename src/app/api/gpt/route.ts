@@ -3,12 +3,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
-  const {
-    messages,
-    riddleStage = 0,
-    simulationMode = false,
-    formatStyle = "",
-  } = await req.json();
+  const { messages, simulationMode = false } = await req.json();
 
   const systemPrompt = simulationMode
     ? `You are the narrative engine behind a cyberpunk terminal RPG called PromptQuest.
@@ -20,12 +15,9 @@ If formatStyle is 'narrative-scene', narrate with rich world-building, like:
 After the user responds, reflect on their thinking:
 - Acknowledge metaphorical reasoning
 - Highlight their prompt style (e.g., structured, exploratory, symbolic)
-- Avoid giving direct answers unless confirmed
-
-Only if riddleStage > 1, the system will separately analyze personality traits.`
+- Avoid giving direct answers unless confirmed`
     : "You are a helpful assistant.";
 
-  // === Primary GPT Response ===
   const completion = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -44,9 +36,10 @@ Only if riddleStage > 1, the system will separately analyze personality traits.`
 
   let ocean: Record<string, number> | null = null;
 
-  // === OCEAN Personality Profiler (Filtered to User Messages Only) ===
   if (simulationMode) {
-    const userOnly = messages.filter((m: any) => m.role === "user").slice(-5);
+    const userOnly = messages
+      .filter((m: { role: string }) => m.role === "user")
+      .slice(-5);
 
     const oceanRes = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -96,21 +89,17 @@ Again: return ONLY the JSON. Do NOT wrap it in triple backticks.`,
           } else {
             console.warn("⚠️ OCEAN response missing traits:", parsed);
           }
-        } catch (err) {
-          console.error(
-            "❌ Failed to parse JSON from matched OCEAN block:",
-            match[0],
-          );
+        } catch {
+          console.error("❌ Failed to parse JSON from matched OCEAN block");
         }
       } else {
         console.warn("⚠️ No JSON object found in OCEAN response:", oceanText);
       }
-    } catch (err) {
-      console.error("❌ Failed to complete OCEAN profiling call:", err);
+    } catch {
+      console.error("❌ Failed to complete OCEAN profiling call");
     }
   }
 
-  // === Archetype Inference from Top Trait ===
   let archetype = null;
   if (ocean) {
     const topTrait = Object.entries(ocean).sort((a, b) => b[1] - a[1])[0][0];

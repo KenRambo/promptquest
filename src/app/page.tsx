@@ -37,7 +37,7 @@ export default function Home() {
   const [conversation, setConversation] = useState<
     { role: ConversationRole; content: string }[]
   >([]);
-  const [hasReceivedRiddle, setHasReceivedRiddle] = useState(false);
+
   const [riddleStage, setRiddleStage] = useState<number>(() => {
     if (typeof window !== "undefined") {
       return parseInt(localStorage.getItem("promptquest-stage") || "0");
