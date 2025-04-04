@@ -1,4 +1,4 @@
-// File: app/page.tsx
+// File: src/app/page.tsx
 
 "use client";
 
@@ -40,6 +40,10 @@ export default function Home() {
   const scrollToBottom = () => {
     endOfLogRef.current?.scrollIntoView({ behavior: "smooth" });
   };
+
+  const [conversation, setConversation] = useState<
+    { role: "user" | "assistant" | "system"; content: string }[]
+  >([]);
 
   const submitPrompt = async () => {
     if (!input) return;
@@ -124,9 +128,6 @@ export default function Home() {
   const endOfLogRef = useRef<HTMLDivElement | null>(null);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [conversation, setConversation] = useState<
-    { role: "user" | "assistant" | "system"; content: string }[]
-  >([]);
 
   const [history, setHistory] = useState(() => {
     if (typeof window !== "undefined") {
