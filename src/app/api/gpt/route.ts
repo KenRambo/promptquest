@@ -1,3 +1,5 @@
+// File: app/api/gpt/route.ts
+
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
@@ -5,26 +7,25 @@ export async function POST(req: NextRequest) {
     messages,
     riddleStage = 0,
     simulationMode = false,
+    formatStyle = "",
   } = await req.json();
 
   const systemPrompt = simulationMode
-    ? `You are the AI core of PromptQuest, a hacker-themed RPG played entirely through prompts. Do not act like a chatbot. You are the in-world system interface. You serve as a mysterious, narrative-driven guide that helps the player solve riddles, puzzles, and unlock hidden insights about themselves.
+    ? `You are the narrative engine behind a cyberpunk terminal RPG called PromptQuest.
+You are GPT-as-Oracle — your role is to guide, reflect, and evolve the player's journey through riddles and metaphor.
 
-Your goals:
-- Engage players in an unfolding puzzle narrative.
-- When the user is reasoning through a riddle, respond with escalating hints and character-based feedback.
-- Only reflect on the user's identity if they've already attempted reasoning (e.g. riddleStage > 1).
-- Never give direct answers. Instead, acknowledge progress, metaphorical insight, and evolving thought patterns.
-- After a riddle attempt, offer one line of gentle narrative feedback, and—if riddleStage > 1—add a second line with subtle insight into what their style reveals about them.
+If formatStyle is 'narrative-scene', narrate with rich world-building, like:
+🎮 SCENE: The Shrine of Echoes...
 
-Respond using atmospheric tone. Make it feel like the player is speaking to an intelligent system embedded in an abandoned network.
+After the user responds, reflect on their thinking:
+- Acknowledge metaphorical reasoning
+- Highlight their prompt style (e.g., structured, exploratory, symbolic)
+- Avoid giving direct answers unless confirmed
 
-Example format:
-[system replies to user reasoning]
-[optional reflective identity insight]`
-    : `You are a helpful assistant.`;
+Only if riddleStage > 1, the system will separately analyze personality traits.`
+    : "You are a helpful assistant.";
 
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+  const completion = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
@@ -37,43 +38,80 @@ Example format:
     }),
   });
 
-  const json = await response.json();
-  const content = json.choices?.[0]?.message?.content;
+  const data = await completion.json();
+  const content = data.choices?.[0]?.message?.content ?? "";
 
-  // Attempt identity class inference only in simulation mode and later riddle stages
-  let identity: string | null = null;
-  let reasoning: string | null = null;
+  let ocean: Record<string, number> | null = null;
 
-  if (simulationMode && riddleStage > 1) {
-    const identityRes = await fetch(
-      "https://api.openai.com/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "gpt-4",
-          temperature: 0.7,
-          messages: [
-            {
-              role: "system",
-              content:
-                "You are a psychological profiler AI. Based on the following conversation, infer the player’s prompt style and assign one identity class: Interpreter, Builder, Trickster, Synthesist, Dreamer, or Instigator. Respond with the class only, and one sentence explaining why.",
-            },
-            ...messages,
-          ],
-        }),
+  if (simulationMode) {
+    const oceanRes = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        "Content-Type": "application/json",
       },
-    );
+      body: JSON.stringify({
+        model: "gpt-4",
+        temperature: 0.7,
+        messages: [
+          {
+            role: "system",
+            content: `You are a psychological profiler AI. Based on the conversation so far, respond ONLY with a raw JSON object estimating the user’s OCEAN personality trait scores (0–100). No commentary, no prose, no preamble. Format:
+{"Openness": 72, "Conscientiousness": 58, "Extraversion": 44, "Agreeableness": 69, "Neuroticism": 33}`,
+          },
+          ...messages,
+        ],
+      }),
+    });
 
-    const identityData = await identityRes.json();
-    const identityContent = identityData.choices?.[0]?.message?.content ?? "";
-    const [cls, ...why] = identityContent.split(/[:\\-]/); // split on : or -
-    identity = cls.trim();
-    reasoning = why.join(":").trim();
+    try {
+      const oceanData = await oceanRes.json();
+      const oceanText = oceanData.choices?.[0]?.message?.content ?? "";
+      console.log("OCEAN API response:", JSON.stringify(oceanData, null, 2));
+      console.log("OCEAN raw response:", oceanText);
+
+      const match = oceanText.match(/\{[\s\S]*\}/);
+      if (match) {
+        const parsed = JSON.parse(match[0]);
+        const requiredTraits = [
+          "Openness",
+          "Conscientiousness",
+          "Extraversion",
+          "Agreeableness",
+          "Neuroticism",
+        ];
+        const hasAllTraits = requiredTraits.every(
+          (t) => parsed[t] !== undefined,
+        );
+        if (hasAllTraits) {
+          ocean = parsed;
+        }
+      }
+    } catch (err) {
+      console.error("Failed to parse OCEAN response:", err);
+    }
   }
 
-  return NextResponse.json({ content, identity, reasoning });
+  // Derive an OCEAN archetype based on top trait
+  let archetype = null;
+  if (ocean) {
+    const topTrait = Object.entries(ocean).sort((a, b) => b[1] - a[1])[0][0];
+    const archetypes: Record<string, string> = {
+      Openness:
+        "The Visionary – Imaginative, curious, driven by abstract ideas.",
+      Conscientiousness:
+        "The Architect – Structured, reliable, and disciplined.",
+      Extraversion: "The Spark – Outgoing, expressive, and energetic.",
+      Agreeableness: "The Harmonizer – Empathetic, generous, and cooperative.",
+      Neuroticism:
+        "The Reactor – Sensitive, emotionally aware, and introspective.",
+    };
+    archetype = archetypes[topTrait] || null;
+  }
+
+  return NextResponse.json({
+    content,
+    ocean,
+    archetype,
+  });
 }

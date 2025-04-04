@@ -2,27 +2,87 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import PersonalitySigil from "@/components/PersonalitySigil";
 
-// Define allowed roles strictly
 type ConversationRole = "user" | "assistant" | "system";
+type OceanTrait =
+  | "Openness"
+  | "Conscientiousness"
+  | "Extraversion"
+  | "Agreeableness"
+  | "Neuroticism";
 
 export default function Home() {
   const [input, setInput] = useState("");
-  const [history, setHistory] = useState<string[]>([]);
+  const [history, setHistory] = useState<string[]>(() => {
+    if (typeof window !== "undefined") {
+      return JSON.parse(localStorage.getItem("promptquest-history") || "[]");
+    }
+    return [];
+  });
   const [loading, setLoading] = useState(false);
-  const [identity, setIdentity] = useState<string | null>(null);
+  const [ocean, setOcean] = useState<Record<OceanTrait, number>>({
+    Openness: 50,
+    Conscientiousness: 50,
+    Extraversion: 50,
+    Agreeableness: 50,
+    Neuroticism: 50,
+  });
+  const [archetype, setArchetype] = useState<string | null>(null);
   const [conversation, setConversation] = useState<
     { role: ConversationRole; content: string }[]
   >([]);
   const [hasReceivedRiddle, setHasReceivedRiddle] = useState(false);
-  const [riddleStage, setRiddleStage] = useState<number>(0);
+  const [riddleStage, setRiddleStage] = useState<number>(() => {
+    if (typeof window !== "undefined") {
+      return parseInt(localStorage.getItem("promptquest-stage") || "0");
+    }
+    return 0;
+  });
+  const [displayedLine, setDisplayedLine] = useState<string | null>(null);
 
-  const extractClassName = (identityString: string): string => {
-    const match = identityString.match(
-      /(Interpreter|Builder|Trickster|Synthesist|Dreamer|Instigator)/i,
-    );
-    return match ? match[1] : identityString;
+  const endOfLogRef = useRef<HTMLDivElement | null>(null);
+
+  const scrollToBottom = () => {
+    endOfLogRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const typewriterEffect = async (text: string) => {
+    return new Promise<void>((resolve) => {
+      let i = 0;
+      const interval = setInterval(() => {
+        setDisplayedLine(text.slice(0, i + 1));
+        i++;
+        if (i === text.length) {
+          clearInterval(interval);
+          resolve();
+        }
+      }, 10);
+    });
+  };
+
+  const animateOcean = (incoming: Record<OceanTrait, number>) => {
+    const duration = 500;
+    const steps = 20;
+    const interval = duration / steps;
+    let step = 0;
+    const start = { ...ocean };
+    const animate = setInterval(() => {
+      setOcean((prev) => {
+        const updated = { ...prev };
+        (Object.keys(prev) as OceanTrait[]).forEach((trait) => {
+          const diff = incoming[trait] - start[trait];
+          updated[trait] = Math.max(
+            0,
+            Math.min(100, start[trait] + (diff * step) / steps),
+          );
+        });
+        return updated;
+      });
+      step++;
+      if (step > steps) clearInterval(animate);
+    }, interval);
   };
 
   const submitPrompt = async () => {
@@ -31,72 +91,86 @@ export default function Home() {
 
     const updatedConversation = [
       ...conversation,
-      { role: "user", content: input } as {
-        role: ConversationRole;
-        content: string;
-      },
+      { role: "user", content: input },
     ];
+
+    setConversation(updatedConversation); // update here to reflect new user input immediately
+    setHistory((prev) => {
+      const updated = [...prev, `> ${input}`];
+      localStorage.setItem("promptquest-history", JSON.stringify(updated));
+      return updated;
+    });
 
     const res = await fetch("/api/gpt", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         messages: updatedConversation,
-        riddleStage: hasReceivedRiddle ? riddleStage : 0,
+        riddleStage,
         simulationMode: true,
+        formatStyle: "narrative-scene",
       }),
     });
 
     const data = await res.json();
     const response = data.content || "⚠️ SYSTEM ERROR: No response received.";
 
-    setConversation([
-      ...updatedConversation,
+    // Append the assistant message in both history and conversation
+    setConversation((prev) => [
+      ...prev,
       { role: "assistant", content: response },
     ]);
-    setHistory((prev) => [...prev, `> ${input}`, response]);
+    await typewriterEffect(response);
+    setDisplayedLine(null); // Clear after animation finishes
 
-    const isRiddle = /riddle/i.test(response);
-    if (isRiddle && !hasReceivedRiddle) {
-      setHasReceivedRiddle(true);
-    }
+    setHistory((prev) => {
+      const updated = [...prev, response];
+      localStorage.setItem("promptquest-history", JSON.stringify(updated));
+      return updated;
+    });
 
-    if (hasReceivedRiddle) {
-      setRiddleStage((prev) => prev + 1);
-    }
+    setRiddleStage((prev) => {
+      const next = prev + 1;
+      localStorage.setItem("promptquest-stage", next.toString());
+      return next;
+    });
 
-    if (
-      data.identity &&
-      typeof data.identity === "string" &&
-      hasReceivedRiddle
-    ) {
-      const identityClass = extractClassName(data.identity);
-      setIdentity(identityClass);
-      if (riddleStage > 1 && data.reasoning) {
-        setHistory((prev) => [...prev, `🧠 CLASS ANALYSIS: ${data.reasoning}`]);
+    if (data.ocean) {
+      const deltas: string[] = [];
+      (Object.keys(data.ocean) as OceanTrait[]).forEach((trait) => {
+        const change = data.ocean[trait] - ocean[trait];
+        if (Math.abs(change) >= 5) {
+          const direction = change > 0 ? "↑" : "↓";
+          deltas.push(`${trait} ${direction} ${Math.abs(Math.round(change))}%`);
+        }
+      });
+
+      if (deltas.length > 0) {
+        const summary = `🧭 Trait Shift: ${deltas.join(" | ")}`;
+        setHistory((prev) => {
+          const updated = [...prev, summary];
+          localStorage.setItem("promptquest-history", JSON.stringify(updated));
+          return updated;
+        });
       }
+
+      animateOcean(data.ocean);
     }
+
+    if (data.archetype) setArchetype(data.archetype);
 
     setInput("");
     setLoading(false);
+    scrollToBottom();
   };
 
   useEffect(() => {
-    const initial = [
-      "🟦 SYSTEM BOOTING...",
-      "💾 MEMORY CORE INCOMPLETE",
-      "🧠 IDENTITY UNKNOWN",
-      "",
-      "To proceed, establish intent.",
-      "Prompt the system with a statement of purpose.",
-    ];
-    setHistory(initial);
     setConversation([
       {
         role: "system",
         content:
-          "You are the narrative engine behind a cyberpunk terminal RPG called PromptQuest. Your job is to simulate a mysterious AI interface that evaluates the player based on how they prompt. Engage deeply with their logic and metaphorical thinking. Tease insights about their psychology as they reason through riddles. Reflect on what their phrasing reveals about their thinking style. Provide encouragement and hints based on their approach. Never give away answers — only respond as you did during the PromptQuest simulation.",
-      } as { role: ConversationRole; content: string },
+          "You are the narrative engine behind PromptQuest. Use immersive metaphor, riddles, and reflect OCEAN traits as the player prompts.",
+      },
     ]);
   }, []);
 
@@ -104,10 +178,22 @@ export default function Home() {
     <div className="min-h-screen bg-black text-green-400 font-mono p-6">
       <div className="max-w-4xl mx-auto">
         <div className="mb-4 p-4 border border-green-500 rounded">
-          <h2 className="text-xl">
-            🧠 Identity Class:{" "}
-            <span className="text-white">{identity || "... calibrating"}</span>
-          </h2>
+          <h2 className="text-xl mb-2">🧠 Personality Profile:</h2>
+          <div className="space-y-1">
+            {Object.entries(ocean).map(([trait, value]) => (
+              <div key={trait} className="flex items-center gap-2">
+                <div className="w-32 text-white">{trait}</div>
+                <div className="flex-1 h-2 bg-green-900 rounded">
+                  <div
+                    className="h-full bg-green-400 rounded transition-all duration-300"
+                    style={{ width: `${value}%` }}
+                  ></div>
+                </div>
+                <span className="w-10 text-right">{Math.round(value)}%</span>
+              </div>
+            ))}
+          </div>
+          <PersonalitySigil archetype={archetype} />
         </div>
 
         <div className="bg-gray-900 p-4 rounded border border-green-600 mb-4 h-[400px] overflow-y-scroll">
@@ -116,7 +202,11 @@ export default function Home() {
               {line}
             </div>
           ))}
+          {displayedLine && (
+            <div className="whitespace-pre-wrap mb-2">{displayedLine}</div>
+          )}
           {loading && <div>...</div>}
+          <div ref={endOfLogRef} />
         </div>
 
         <div className="flex gap-2">
