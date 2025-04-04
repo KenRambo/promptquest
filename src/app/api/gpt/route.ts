@@ -112,13 +112,13 @@ The response must look like:
     let subtype = "";
 
     const extremeThreshold = 90;
-    const extremeTraits = Object.values(ocean).filter(
-      (value) => value >= extremeThreshold,
+    const extremeTraits = Object.entries(ocean).filter(
+      (entry) => entry[1] >= extremeThreshold,
     );
 
     if (extremeTraits.length >= 2) {
       archetypeBase = "Ascended";
-      subtype = `of ${extremeTraits.map(([t]) => t).join(" & ")}`;
+      subtype = `of ${extremeTraits.map((entry) => entry[0]).join(" & ")}`;
     } else if (Conscientiousness > 70) {
       archetypeBase = "The Architect";
       if (Openness > 65) subtype = "Builder";

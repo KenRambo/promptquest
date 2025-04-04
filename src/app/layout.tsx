@@ -1,7 +1,9 @@
-//import type { Metadata } from "next";
+// File: src/app/layout.tsx
+
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Analytics } from "@vercel/analytics/react";
+import type { Metadata } from "next";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -13,11 +15,11 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata = {
+export const metadata: Metadata = {
   title: "PromptQuest",
   description: "A terminal RPG for your mind.",
   icons: {
-    icon: "/favicon.ico", // or "/promptquest-icon.png"
+    icon: "/favicon.ico",
   },
 };
 
