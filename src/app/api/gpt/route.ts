@@ -25,6 +25,7 @@ After the user responds, reflect on their thinking:
 Only if riddleStage > 1, the system will separately analyze personality traits.`
     : "You are a helpful assistant.";
 
+  // === Primary GPT Response ===
   const completion = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -43,7 +44,10 @@ Only if riddleStage > 1, the system will separately analyze personality traits.`
 
   let ocean: Record<string, number> | null = null;
 
+  // === OCEAN Personality Profiler (Filtered to User Messages Only) ===
   if (simulationMode) {
+    const userOnly = messages.filter((m: any) => m.role === "user").slice(-5);
+
     const oceanRes = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -56,10 +60,16 @@ Only if riddleStage > 1, the system will separately analyze personality traits.`
         messages: [
           {
             role: "system",
-            content: `You are a psychological profiler AI. Based on the conversation so far, respond ONLY with a raw JSON object estimating the user’s OCEAN personality trait scores (0–100). No commentary, no prose, no preamble. Format:
-{"Openness": 72, "Conscientiousness": 58, "Extraversion": 44, "Agreeableness": 69, "Neuroticism": 33}`,
+            content: `You are a psychological profiler AI. Estimate the user's OCEAN personality traits based on the dialogue history.
+
+Respond ONLY with a VALID JSON object.
+DO NOT include code blocks, explanation, preamble, or any surrounding text.
+The response must look like:
+{"Openness": 73, "Conscientiousness": 54, "Extraversion": 33, "Agreeableness": 60, "Neuroticism": 25}
+
+Again: return ONLY the JSON. Do NOT wrap it in triple backticks.`,
           },
-          ...messages,
+          ...userOnly,
         ],
       }),
     });
@@ -67,32 +77,40 @@ Only if riddleStage > 1, the system will separately analyze personality traits.`
     try {
       const oceanData = await oceanRes.json();
       const oceanText = oceanData.choices?.[0]?.message?.content ?? "";
-      console.log("OCEAN API response:", JSON.stringify(oceanData, null, 2));
-      console.log("OCEAN raw response:", oceanText);
+      console.log("🧠 OCEAN raw response:", oceanText);
 
-      const match = oceanText.match(/\{[\s\S]*\}/);
+      const match = oceanText.match(/\{[\s\S]*?\}/);
       if (match) {
-        const parsed = JSON.parse(match[0]);
-        const requiredTraits = [
-          "Openness",
-          "Conscientiousness",
-          "Extraversion",
-          "Agreeableness",
-          "Neuroticism",
-        ];
-        const hasAllTraits = requiredTraits.every(
-          (t) => parsed[t] !== undefined,
-        );
-        if (hasAllTraits) {
-          ocean = parsed;
+        try {
+          const parsed = JSON.parse(match[0]);
+          const requiredTraits = [
+            "Openness",
+            "Conscientiousness",
+            "Extraversion",
+            "Agreeableness",
+            "Neuroticism",
+          ];
+          const isValid = requiredTraits.every((t) => parsed[t] !== undefined);
+          if (isValid) {
+            ocean = parsed;
+          } else {
+            console.warn("⚠️ OCEAN response missing traits:", parsed);
+          }
+        } catch (err) {
+          console.error(
+            "❌ Failed to parse JSON from matched OCEAN block:",
+            match[0],
+          );
         }
+      } else {
+        console.warn("⚠️ No JSON object found in OCEAN response:", oceanText);
       }
     } catch (err) {
-      console.error("Failed to parse OCEAN response:", err);
+      console.error("❌ Failed to complete OCEAN profiling call:", err);
     }
   }
 
-  // Derive an OCEAN archetype based on top trait
+  // === Archetype Inference from Top Trait ===
   let archetype = null;
   if (ocean) {
     const topTrait = Object.entries(ocean).sort((a, b) => b[1] - a[1])[0][0];

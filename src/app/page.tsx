@@ -13,6 +13,10 @@ type OceanTrait =
   | "Agreeableness"
   | "Neuroticism";
 
+const BlinkingCursor = () => (
+  <span className="animate-pulse text-green-400">█</span>
+);
+
 export default function Home() {
   const [input, setInput] = useState("");
   const [history, setHistory] = useState<string[]>(() => {
@@ -94,7 +98,7 @@ export default function Home() {
       { role: "user", content: input },
     ];
 
-    setConversation(updatedConversation); // update here to reflect new user input immediately
+    setConversation(updatedConversation);
     setHistory((prev) => {
       const updated = [...prev, `> ${input}`];
       localStorage.setItem("promptquest-history", JSON.stringify(updated));
@@ -115,13 +119,12 @@ export default function Home() {
     const data = await res.json();
     const response = data.content || "⚠️ SYSTEM ERROR: No response received.";
 
-    // Append the assistant message in both history and conversation
     setConversation((prev) => [
       ...prev,
       { role: "assistant", content: response },
     ]);
     await typewriterEffect(response);
-    setDisplayedLine(null); // Clear after animation finishes
+    setDisplayedLine(null);
 
     setHistory((prev) => {
       const updated = [...prev, response];
@@ -136,9 +139,15 @@ export default function Home() {
     });
 
     if (data.ocean) {
+      const startOcean = { ...ocean }; // snapshot of current state before update
+
+      // Immediately update state to the target so React re-renders the new values
+      setOcean(data.ocean);
+      animateOcean(data.ocean);
+
       const deltas: string[] = [];
       (Object.keys(data.ocean) as OceanTrait[]).forEach((trait) => {
-        const change = data.ocean[trait] - ocean[trait];
+        const change = data.ocean[trait] - startOcean[trait];
         if (Math.abs(change) >= 5) {
           const direction = change > 0 ? "↑" : "↓";
           deltas.push(`${trait} ${direction} ${Math.abs(Math.round(change))}%`);
@@ -153,8 +162,6 @@ export default function Home() {
           return updated;
         });
       }
-
-      animateOcean(data.ocean);
     }
 
     if (data.archetype) setArchetype(data.archetype);
@@ -181,8 +188,8 @@ export default function Home() {
           <h2 className="text-xl mb-2">🧠 Personality Profile:</h2>
           <div className="space-y-1">
             {Object.entries(ocean).map(([trait, value]) => (
-              <div key={trait} className="flex items-center gap-2">
-                <div className="w-32 text-white">{trait}</div>
+              <div key={trait} className="flex items-center gap-2 text-sm">
+                <div className="w-40 text-white">{trait}</div>
                 <div className="flex-1 h-2 bg-green-900 rounded">
                   <div
                     className="h-full bg-green-400 rounded transition-all duration-300"
@@ -205,7 +212,11 @@ export default function Home() {
           {displayedLine && (
             <div className="whitespace-pre-wrap mb-2">{displayedLine}</div>
           )}
-          {loading && <div>...</div>}
+          {loading && (
+            <div className="mb-2 whitespace-pre-wrap">
+              <BlinkingCursor />
+            </div>
+          )}
           <div ref={endOfLogRef} />
         </div>
 
