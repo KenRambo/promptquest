@@ -1,51 +1,106 @@
-// File: app/page.tsx (or pages/index.tsx in traditional Next.js)
+// File: app/page.tsx
 
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export default function Home() {
   const [input, setInput] = useState("");
   const [history, setHistory] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
-  const [identity, setIdentity] = useState("???");
+  const [identity, setIdentity] = useState<string | null>(null);
+  const [conversation, setConversation] = useState<
+    { role: "user" | "assistant"; content: string }[]
+  >([]);
+  const [hasReceivedRiddle, setHasReceivedRiddle] = useState(false);
+  const [riddleStage, setRiddleStage] = useState<number>(0);
+
+  const extractClassName = (identityString: string): string => {
+    const match = identityString.match(
+      /(Interpreter|Builder|Trickster|Synthesist|Dreamer|Instigator)/i,
+    );
+    return match ? match[1] : identityString;
+  };
 
   const submitPrompt = async () => {
     if (!input) return;
     setLoading(true);
+
+    const updatedConversation = [
+      ...conversation,
+      { role: "user", content: input },
+    ];
+
     const res = await fetch("/api/gpt", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt: input }),
+      body: JSON.stringify({
+        messages: updatedConversation,
+        riddleStage: hasReceivedRiddle ? riddleStage : 0,
+        simulationMode: true,
+      }),
     });
-    const data = await res.json();
-    setHistory([...history, `> ${input}`, data]);
 
-    // Naive identity inference example
-    if (input.toLowerCase().includes("analyze") || input.length > 150) {
-      setIdentity("The Interpreter");
-    } else if (
-      input.toLowerCase().includes("build") ||
-      input.includes("code")
+    const data = await res.json();
+    const response = data.content || "⚠️ SYSTEM ERROR: No response received.";
+
+    setConversation([
+      ...updatedConversation,
+      { role: "assistant", content: response },
+    ]);
+    setHistory((prev) => [...prev, `> ${input}`, response]);
+
+    const isRiddle = /riddle/i.test(response);
+    if (isRiddle && !hasReceivedRiddle) {
+      setHasReceivedRiddle(true);
+    }
+
+    if (hasReceivedRiddle) {
+      setRiddleStage((prev) => prev + 1);
+    }
+
+    if (
+      data.identity &&
+      typeof data.identity === "string" &&
+      hasReceivedRiddle
     ) {
-      setIdentity("The Builder");
-    } else if (
-      input.toLowerCase().includes("you are") &&
-      input.toLowerCase().includes("pirate")
-    ) {
-      setIdentity("The Trickster");
+      const identityClass = extractClassName(data.identity);
+      setIdentity(identityClass);
+      if (riddleStage > 1 && data.reasoning) {
+        setHistory((prev) => [...prev, `🧠 CLASS ANALYSIS: ${data.reasoning}`]);
+      }
     }
 
     setInput("");
     setLoading(false);
   };
 
+  useEffect(() => {
+    const initial = [
+      "🟦 SYSTEM BOOTING...",
+      "💾 MEMORY CORE INCOMPLETE",
+      "🧠 IDENTITY UNKNOWN",
+      "",
+      "To proceed, establish intent.",
+      "Prompt the system with a statement of purpose.",
+    ];
+    setHistory(initial);
+    setConversation([
+      {
+        role: "system",
+        content:
+          "You are the narrative engine behind a cyberpunk terminal RPG called PromptQuest. Your job is to simulate a mysterious AI interface that evaluates the player based on how they prompt. Engage deeply with their logic and metaphorical thinking. Tease insights about their psychology as they reason through riddles. Reflect on what their phrasing reveals about their thinking style. Provide encouragement and hints based on their approach. Never give away answers — only respond as you did during the PromptQuest simulation.",
+      },
+    ]);
+  }, []);
+
   return (
     <div className="min-h-screen bg-black text-green-400 font-mono p-6">
       <div className="max-w-4xl mx-auto">
         <div className="mb-4 p-4 border border-green-500 rounded">
           <h2 className="text-xl">
-            🧠 Identity Class: <span className="text-white">{identity}</span>
+            🧠 Identity Class:{" "}
+            <span className="text-white">{identity || "... calibrating"}</span>
           </h2>
         </div>
 
