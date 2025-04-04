@@ -4,13 +4,16 @@
 
 import { useEffect, useState } from "react";
 
+// Define allowed roles strictly
+type ConversationRole = "user" | "assistant" | "system";
+
 export default function Home() {
   const [input, setInput] = useState("");
   const [history, setHistory] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [identity, setIdentity] = useState<string | null>(null);
   const [conversation, setConversation] = useState<
-    { role: "user" | "assistant" | "system"; content: string }[]
+    { role: ConversationRole; content: string }[]
   >([]);
   const [hasReceivedRiddle, setHasReceivedRiddle] = useState(false);
   const [riddleStage, setRiddleStage] = useState<number>(0);
@@ -28,7 +31,10 @@ export default function Home() {
 
     const updatedConversation = [
       ...conversation,
-      { role: "user", content: input },
+      { role: "user", content: input } as {
+        role: ConversationRole;
+        content: string;
+      },
     ];
 
     const res = await fetch("/api/gpt", {
@@ -90,7 +96,7 @@ export default function Home() {
         role: "system",
         content:
           "You are the narrative engine behind a cyberpunk terminal RPG called PromptQuest. Your job is to simulate a mysterious AI interface that evaluates the player based on how they prompt. Engage deeply with their logic and metaphorical thinking. Tease insights about their psychology as they reason through riddles. Reflect on what their phrasing reveals about their thinking style. Provide encouragement and hints based on their approach. Never give away answers — only respond as you did during the PromptQuest simulation.",
-      },
+      } as { role: ConversationRole; content: string },
     ]);
   }, []);
 
