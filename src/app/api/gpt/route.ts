@@ -35,6 +35,8 @@ After the user responds, reflect on their thinking:
   const content = data.choices?.[0]?.message?.content ?? "";
 
   let ocean: Record<string, number> | null = null;
+  let archetype: string | null = null;
+  let commentary: string | null = null;
 
   if (simulationMode) {
     const userOnly = messages
@@ -58,9 +60,7 @@ After the user responds, reflect on their thinking:
 Respond ONLY with a VALID JSON object.
 DO NOT include code blocks, explanation, preamble, or any surrounding text.
 The response must look like:
-{"Openness": 73, "Conscientiousness": 54, "Extraversion": 33, "Agreeableness": 60, "Neuroticism": 25}
-
-Again: return ONLY the JSON. Do NOT wrap it in triple backticks.`,
+{"Openness": 73, "Conscientiousness": 54, "Extraversion": 33, "Agreeableness": 60, "Neuroticism": 25}`,
           },
           ...userOnly,
         ],
@@ -75,7 +75,9 @@ Again: return ONLY the JSON. Do NOT wrap it in triple backticks.`,
       const match = oceanText.match(/\{[\s\S]*?\}/);
       if (match) {
         try {
-          const parsed = JSON.parse(match[0]);
+          const parsed = JSON.parse(
+            match[0].replace(/[\u2018\u2019\u201C\u201D]/g, '"'),
+          );
           const requiredTraits = [
             "Openness",
             "Conscientiousness",
@@ -84,25 +86,18 @@ Again: return ONLY the JSON. Do NOT wrap it in triple backticks.`,
             "Neuroticism",
           ];
           const isValid = requiredTraits.every((t) => parsed[t] !== undefined);
-          if (isValid) {
-            ocean = parsed;
-          } else {
-            console.warn("⚠️ OCEAN response missing traits:", parsed);
-          }
-        } catch {
-          console.error("❌ Failed to parse JSON from matched OCEAN block");
+          if (isValid) ocean = parsed;
+          else console.warn("⚠️ OCEAN response missing traits:", parsed);
+        } catch (e) {
+          console.error("❌ Failed to parse JSON:", e);
         }
       } else {
         console.warn("⚠️ No JSON object found in OCEAN response:", oceanText);
       }
-    } catch {
-      console.error("❌ Failed to complete OCEAN profiling call");
+    } catch (err) {
+      console.error("❌ Failed to complete OCEAN profiling call:", err);
     }
   }
-
-  // === Archetype + Subtype Inference ===
-  let archetypeBase = "";
-  let subtype = "";
 
   if (ocean) {
     const {
@@ -112,6 +107,9 @@ Again: return ONLY the JSON. Do NOT wrap it in triple backticks.`,
       Agreeableness,
       Neuroticism,
     } = ocean;
+
+    let archetypeBase = "";
+    let subtype = "";
 
     const extremeThreshold = 90;
     const extremeTraits = Object.entries(ocean).filter(
@@ -123,45 +121,41 @@ Again: return ONLY the JSON. Do NOT wrap it in triple backticks.`,
       subtype = `of ${extremeTraits.map(([t]) => t).join(" & ")}`;
     } else if (Conscientiousness > 70) {
       archetypeBase = "The Architect";
-      if (Openness > 65) subtype = "The Builder";
-      else if (Extraversion < 40) subtype = "The Planner";
-      else if (Agreeableness > 60) subtype = "The Strategist";
-      else if (Neuroticism < 40) subtype = "The Executor";
+      if (Openness > 65) subtype = "Builder";
+      else if (Extraversion < 40) subtype = "Planner";
+      else if (Agreeableness > 60) subtype = "Strategist";
+      else if (Neuroticism < 40) subtype = "Executor";
     } else if (Openness > 70) {
       archetypeBase = "The Visionary";
-      if (Neuroticism > 60) subtype = "The Dreamer";
-      else if (Conscientiousness > 60) subtype = "The Inventor";
-      else if (Extraversion < 40) subtype = "The Mystic";
-      else if (Extraversion > 60) subtype = "The Explorer";
+      if (Neuroticism > 60) subtype = "Dreamer";
+      else if (Conscientiousness > 60) subtype = "Inventor";
+      else if (Extraversion < 40) subtype = "Mystic";
+      else if (Extraversion > 60) subtype = "Explorer";
     } else if (Extraversion > 70) {
       archetypeBase = "The Spark";
-      if (Openness > 60) subtype = "The Performer";
-      else if (Conscientiousness > 60) subtype = "The Leader";
-      else if (Agreeableness > 60) subtype = "The Connector";
-      else if (Neuroticism > 60) subtype = "The Storm";
+      if (Openness > 60) subtype = "Performer";
+      else if (Conscientiousness > 60) subtype = "Leader";
+      else if (Agreeableness > 60) subtype = "Connector";
+      else if (Neuroticism > 60) subtype = "Storm";
     } else if (Agreeableness > 70) {
       archetypeBase = "The Harmonizer";
-      if (Neuroticism > 60) subtype = "The Healer";
-      else if (Conscientiousness > 60) subtype = "The Diplomat";
-      else if (Extraversion > 60) subtype = "The Friend";
-      else if (Extraversion < 40) subtype = "The Listener";
+      if (Neuroticism > 60) subtype = "Healer";
+      else if (Conscientiousness > 60) subtype = "Diplomat";
+      else if (Extraversion > 60) subtype = "Friend";
+      else if (Extraversion < 40) subtype = "Listener";
     } else if (Neuroticism > 70) {
       archetypeBase = "The Reactor";
-      if (Agreeableness > 60) subtype = "The Empath";
-      else if (Openness > 60) subtype = "The Artist";
-      else if (Conscientiousness > 60) subtype = "The Survivor";
-      else if (Extraversion < 40) subtype = "The Shadow";
+      if (Agreeableness > 60) subtype = "Empath";
+      else if (Openness > 60) subtype = "Artist";
+      else if (Conscientiousness > 60) subtype = "Survivor";
+      else if (Extraversion < 40) subtype = "Shadow";
     }
 
     if (!archetypeBase) {
       archetypeBase = "The Wanderer";
-      subtype = "The Undefined";
+      subtype = "Undefined";
     }
-  }
 
-  let archetype = null;
-
-  if (ocean) {
     const emojis: Record<string, string> = {
       Builder: "🧱",
       Planner: "📐",
@@ -219,13 +213,10 @@ Again: return ONLY the JSON. Do NOT wrap it in triple backticks.`,
         "Exhibits rare extremity in multiple traits — an outlier beyond known bounds.",
     };
 
-    const emoji = subtype in emojis ? `${emojis[subtype]} ` : "";
-    const commentary = traitDescriptions[subtype]
-      ? ` (${traitDescriptions[subtype]})`
-      : "";
-    archetype = `${emoji}${archetypeBase} – ${subtype}${commentary}`;
+    const emoji = emojis[subtype] || "❓";
+    commentary = traitDescriptions[subtype] || "Unknown subtype.";
+    archetype = `${emoji} ${archetypeBase} – ${subtype}`;
 
-    // Special terminal log for Ascended class
     if (archetypeBase === "Ascended") {
       console.log(
         "🧬 You have transcended into the rare class: Ascended – unlocking hidden narrative threads...",
@@ -233,9 +224,5 @@ Again: return ONLY the JSON. Do NOT wrap it in triple backticks.`,
     }
   }
 
-  return NextResponse.json({
-    content,
-    ocean,
-    archetype,
-  });
+  return NextResponse.json({ content, ocean, archetype, commentary });
 }

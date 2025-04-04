@@ -8,107 +8,37 @@ import PersonalitySigil from "@/components/PersonalitySigil";
 
 const logo = "/promptquest-logo.png";
 
-type ConversationRole = "user" | "assistant" | "system";
-type OceanTrait =
-  | "Openness"
-  | "Conscientiousness"
-  | "Extraversion"
-  | "Agreeableness"
-  | "Neuroticism";
+function getEmojiForSubtype(label: string): string {
+  const map: Record<string, string> = {
+    Builder: "🧱",
+    Planner: "📐",
+    Strategist: "♟️",
+    Executor: "🛠️",
+    Dreamer: "🌙",
+    Inventor: "⚙️",
+    Mystic: "🔮",
+    Explorer: "🧭",
+    Performer: "🎭",
+    Leader: "👑",
+    Connector: "🤝",
+    Storm: "🌩️",
+    Healer: "💊",
+    Diplomat: "🕊️",
+    Friend: "😊",
+    Listener: "👂",
+    Empath: "💞",
+    Artist: "🎨",
+    Survivor: "🧱",
+    Shadow: "🌑",
+    Undefined: "❓",
+    Ascended: "✨",
+  };
+  return map[label] || "❓";
+}
 
 export default function Home() {
-  const [input, setInput] = useState("");
-  const [history, setHistory] = useState<string[]>(() => {
-    if (typeof window !== "undefined") {
-      return JSON.parse(localStorage.getItem("promptquest-history") || "[]");
-    }
-    return [];
-  });
-  const [loading, setLoading] = useState(false);
-  const [ocean, setOcean] = useState<Record<OceanTrait, number>>({
-    Openness: 50,
-    Conscientiousness: 50,
-    Extraversion: 50,
-    Agreeableness: 50,
-    Neuroticism: 50,
-  });
-  const [archetype, setArchetype] = useState<string | null>(null);
-  const [conversation, setConversation] = useState<
-    { role: ConversationRole; content: string }[]
-  >([]);
-  const [riddleStage, setRiddleStage] = useState<number>(() => {
-    if (typeof window !== "undefined") {
-      return parseInt(localStorage.getItem("promptquest-stage") || "0");
-    }
-    return 0;
-  });
-  const [displayedLine, setDisplayedLine] = useState<string | null>(null);
-
-  const [booting, setBooting] = useState(true);
-  const [bootLines, setBootLines] = useState<string[]>([]);
-
-  const endOfLogRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    const lines = [
-      "> SYSTEM CHECK...",
-      "> LOADING CORE MODULES...",
-      "> INITIALIZING NEURAL INTERFACE...",
-      "> ALIGNING PERSONALITY MATRIX...",
-      "> WAKING ARCHETYPE ENGINE...",
-      "> LINK ESTABLISHED.",
-    ];
-
-    let i = 0;
-    const interval = setInterval(() => {
-      setBootLines((prev) => [...prev, lines[i]]);
-      i++;
-      if (i === lines.length) {
-        clearInterval(interval);
-        setTimeout(() => setBooting(false), 1000);
-      }
-    }, 400);
-  }, []);
-
   const scrollToBottom = () => {
     endOfLogRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  const typewriterEffect = async (text: string) => {
-    return new Promise<void>((resolve) => {
-      let i = 0;
-      const interval = setInterval(() => {
-        setDisplayedLine(text.slice(0, i + 1));
-        i++;
-        if (i === text.length) {
-          clearInterval(interval);
-          resolve();
-        }
-      }, 10);
-    });
-  };
-
-  const animateOcean = (incoming: Record<OceanTrait, number>) => {
-    const duration = 500;
-    const steps = 20;
-    const interval = duration / steps;
-    let step = 0;
-    const start = { ...ocean };
-    const animate = setInterval(() => {
-      setOcean((prev) => {
-        const updated = { ...prev };
-        (Object.keys(prev) as OceanTrait[]).forEach((trait) => {
-          const diff = incoming[trait] - start[trait];
-          updated[trait] = Math.max(
-            0,
-            Math.min(100, start[trait] + (diff * step) / steps),
-          );
-        });
-        return updated;
-      });
-      step++;
-      if (step > steps) clearInterval(animate);
-    }, interval);
   };
 
   const submitPrompt = async () => {
@@ -160,32 +90,16 @@ export default function Home() {
       return next;
     });
 
-    if (data.ocean) {
-      const startOcean = { ...ocean };
-      setOcean(data.ocean);
-      animateOcean(data.ocean);
+    if (data.ocean) setOcean(data.ocean);
 
-      const deltas: string[] = [];
-      (Object.keys(data.ocean) as OceanTrait[]).forEach((trait) => {
-        const change = data.ocean[trait] - startOcean[trait];
-        if (Math.abs(change) >= 5) {
-          const direction = change > 0 ? "↑" : "↓";
-          deltas.push(`${trait} ${direction} ${Math.abs(Math.round(change))}%`);
-        }
+    if (data.archetype) {
+      const [main, sub] = data.archetype.split(" – ");
+      setArchetype({ name: main, emoji: getEmojiForSubtype(main) });
+      setSubtype({
+        name: sub,
+        emoji: getEmojiForSubtype(sub),
+        commentary: data.commentary ?? "No insight available.",
       });
-
-      if (deltas.length > 0) {
-        const summary = `🧭 Trait Shift: ${deltas.join(" | ")}`;
-        setHistory((prev) => {
-          const updated = [...prev, summary];
-          localStorage.setItem("promptquest-history", JSON.stringify(updated));
-          return updated;
-        });
-      }
-    }
-
-    if (data.archetype && data.archetype.includes("–")) {
-      setArchetype(data.archetype);
     }
 
     setInput("");
@@ -193,14 +107,75 @@ export default function Home() {
     scrollToBottom();
   };
 
+  const typewriterEffect = async (text: string) => {
+    return new Promise<void>((resolve) => {
+      let i = 0;
+      const interval = setInterval(() => {
+        setDisplayedLine(text.slice(0, i + 1));
+        i++;
+        if (i === text.length) {
+          clearInterval(interval);
+          resolve();
+        }
+      }, 10);
+    });
+  };
+
+  const endOfLogRef = useRef<HTMLDivElement | null>(null);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [conversation, setConversation] = useState([]);
+  const [history, setHistory] = useState(() => {
+    if (typeof window !== "undefined") {
+      return JSON.parse(localStorage.getItem("promptquest-history") || "[]");
+    }
+    return [];
+  });
+  const [riddleStage, setRiddleStage] = useState(() => {
+    if (typeof window !== "undefined") {
+      return parseInt(localStorage.getItem("promptquest-stage") || "0");
+    }
+    return 0;
+  });
+  const [displayedLine, setDisplayedLine] = useState<string | null>(null);
+  const [ocean, setOcean] = useState({
+    Openness: 50,
+    Conscientiousness: 50,
+    Extraversion: 50,
+    Agreeableness: 50,
+    Neuroticism: 50,
+  });
+  const [archetype, setArchetype] = useState<{
+    name: string;
+    emoji: string;
+  } | null>(null);
+  const [subtype, setSubtype] = useState<{
+    name: string;
+    emoji: string;
+    commentary: string;
+  } | null>(null);
+  const [booting, setBooting] = useState(true);
+  const [bootLines, setBootLines] = useState<string[]>([]);
+
   useEffect(() => {
-    setConversation([
-      {
-        role: "system",
-        content:
-          "You are the narrative engine behind PromptQuest. Use immersive metaphor, riddles, and reflect OCEAN traits as the player prompts.",
-      },
-    ]);
+    const lines = [
+      "> SYSTEM CHECK...",
+      "> LOADING CORE MODULES...",
+      "> INITIALIZING NEURAL INTERFACE...",
+      "> ALIGNING PERSONALITY MATRIX...",
+      "> WAKING ARCHETYPE ENGINE...",
+      "> LINK ESTABLISHED.",
+    ];
+
+    let i = 0;
+    const interval = setInterval(() => {
+      setBootLines((prev) => [...prev, lines[i]]);
+      i++;
+      if (i === lines.length) {
+        clearInterval(interval);
+        setTimeout(() => setBooting(false), 1000);
+      }
+    }, 400);
   }, []);
 
   return (
@@ -226,7 +201,9 @@ export default function Home() {
                 className="mx-auto mb-2 rounded shadow-lg animate-logo-flicker"
               />
               <h1 className="text-3xl font-bold tracking-wide">PROMPTQUEST</h1>
-              <h3 className="text-l mb-3">Version 0.9 Beta</h3>
+              <p className="text-green-600 text-sm italic animate-pulse">
+                initializing psyche interface...
+              </p>
             </div>
 
             <div className="mb-4 p-4 border border-green-500 rounded animate-fade-in-slow">
@@ -247,8 +224,52 @@ export default function Home() {
                   </div>
                 ))}
               </div>
-              <PersonalitySigil archetype={archetype} />
+              <PersonalitySigil archetype={archetype?.name ?? null} />
             </div>
+
+            {archetype && subtype ? (
+              <div className="mt-6 p-4 border border-green-600 rounded bg-black shadow-lg animate-fade-in-slow">
+                <h2 className="text-xl text-green-300 font-bold mb-2">
+                  🧬 Personality Unlocked
+                </h2>
+                <div className="text-green-400 mb-1">
+                  <span className="font-semibold">Archetype:</span>{" "}
+                  {archetype.emoji} <strong>{archetype.name}</strong>
+                </div>
+                <div className="text-green-400 mb-1">
+                  <span className="font-semibold">Subtype:</span>{" "}
+                  {subtype.emoji} <strong>{subtype.name}</strong>
+                </div>
+                <p className="text-green-500 italic text-sm mb-4">
+                  “{subtype.commentary}”
+                </p>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => {
+                      const message = `I just unlocked my archetype in PROMPTQUEST: ${archetype.name} (${subtype.name}) ${subtype.emoji} — ${subtype.commentary}`;
+                      navigator.clipboard.writeText(message);
+                      alert(
+                        "Share text copied to clipboard! Paste it on LinkedIn, X, or anywhere.",
+                      );
+                    }}
+                    className="px-3 py-1 bg-green-700 hover:bg-green-600 text-white text-sm rounded transition-all"
+                  >
+                    📤 Share Your Psyche
+                  </button>
+                  <span className="text-xs text-green-500 font-mono">
+                    Referral Code:{" "}
+                    <strong className="text-green-300">
+                      PROMPT-{subtype.name.slice(0, 3).toUpperCase()}
+                      {Math.floor(Math.random() * 900 + 100)}
+                    </strong>
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="flex justify-center mt-6 animate-pulse text-green-800 italic">
+                Personality analysis in progress...
+              </div>
+            )}
 
             <div className="bg-gray-900 p-4 rounded border border-green-600 mb-4 h-[400px] overflow-y-scroll animate-fade-in-slow">
               {history.map((line, i) => (
