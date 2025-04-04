@@ -36,20 +36,75 @@ function getEmojiForSubtype(label: string): string {
   return map[label] || "❓";
 }
 
+type Message = {
+  role: "user" | "assistant" | "system";
+  content: string;
+};
+
+type Subtype = {
+  name: string;
+  emoji: string;
+  commentary: string;
+};
+
+type Archetype = {
+  name: string;
+  emoji: string;
+};
+
 export default function Home() {
+  const endOfLogRef = useRef<HTMLDivElement | null>(null);
   const scrollToBottom = () => {
     endOfLogRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  const [conversation, setConversation] = useState<
-    { role: "user" | "assistant" | "system"; content: string }[]
-  >([]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [conversation, setConversation] = useState<Message[]>([]);
+  const [history, setHistory] = useState<string[]>(() => {
+    if (typeof window !== "undefined") {
+      return JSON.parse(localStorage.getItem("promptquest-history") || "[]");
+    }
+    return [];
+  });
+  const [riddleStage, setRiddleStage] = useState(() => {
+    if (typeof window !== "undefined") {
+      return parseInt(localStorage.getItem("promptquest-stage") || "0");
+    }
+    return 0;
+  });
+  const [displayedLine, setDisplayedLine] = useState<string | null>(null);
+  const [ocean, setOcean] = useState({
+    Openness: 50,
+    Conscientiousness: 50,
+    Extraversion: 50,
+    Agreeableness: 50,
+    Neuroticism: 50,
+  });
+  const [archetype, setArchetype] = useState<Archetype | null>(null);
+  const [subtype, setSubtype] = useState<Subtype | null>(null);
+  const [booting, setBooting] = useState(true);
+  const [bootLines, setBootLines] = useState<string[]>([]);
+
+  const typewriterEffect = async (text: string) => {
+    return new Promise<void>((resolve) => {
+      let i = 0;
+      const interval = setInterval(() => {
+        setDisplayedLine(text.slice(0, i + 1));
+        i++;
+        if (i === text.length) {
+          clearInterval(interval);
+          resolve();
+        }
+      }, 10);
+    });
+  };
 
   const submitPrompt = async () => {
     if (!input) return;
     setLoading(true);
 
-    const updatedConversation = [
+    const updatedConversation: Message[] = [
       ...conversation,
       { role: "user", content: input },
     ];
@@ -110,56 +165,6 @@ export default function Home() {
     setLoading(false);
     scrollToBottom();
   };
-
-  const typewriterEffect = async (text: string) => {
-    return new Promise<void>((resolve) => {
-      let i = 0;
-      const interval = setInterval(() => {
-        setDisplayedLine(text.slice(0, i + 1));
-        i++;
-        if (i === text.length) {
-          clearInterval(interval);
-          resolve();
-        }
-      }, 10);
-    });
-  };
-
-  const endOfLogRef = useRef<HTMLDivElement | null>(null);
-  const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  const [history, setHistory] = useState(() => {
-    if (typeof window !== "undefined") {
-      return JSON.parse(localStorage.getItem("promptquest-history") || "[]");
-    }
-    return [];
-  });
-  const [riddleStage, setRiddleStage] = useState(() => {
-    if (typeof window !== "undefined") {
-      return parseInt(localStorage.getItem("promptquest-stage") || "0");
-    }
-    return 0;
-  });
-  const [displayedLine, setDisplayedLine] = useState<string | null>(null);
-  const [ocean, setOcean] = useState({
-    Openness: 50,
-    Conscientiousness: 50,
-    Extraversion: 50,
-    Agreeableness: 50,
-    Neuroticism: 50,
-  });
-  const [archetype, setArchetype] = useState<{
-    name: string;
-    emoji: string;
-  } | null>(null);
-  const [subtype, setSubtype] = useState<{
-    name: string;
-    emoji: string;
-    commentary: string;
-  } | null>(null);
-  const [booting, setBooting] = useState(true);
-  const [bootLines, setBootLines] = useState<string[]>([]);
 
   useEffect(() => {
     const lines = [
