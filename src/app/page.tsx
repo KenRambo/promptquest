@@ -13,6 +13,11 @@ type OceanTrait =
   | "Agreeableness"
   | "Neuroticism";
 
+type Conversation = {
+  role: ConversationRole;
+  content: string;
+};
+
 const BlinkingCursor = () => (
   <span className="animate-pulse text-green-400">█</span>
 );
@@ -34,10 +39,7 @@ export default function Home() {
     Neuroticism: 50,
   });
   const [archetype, setArchetype] = useState<string | null>(null);
-  const [conversation, setConversation] = useState<
-    { role: ConversationRole; content: string }[]
-  >([]);
-
+  const [conversation, setConversation] = useState<Conversation[]>([]);
   const [riddleStage, setRiddleStage] = useState<number>(() => {
     if (typeof window !== "undefined") {
       return parseInt(localStorage.getItem("promptquest-stage") || "0");
@@ -93,7 +95,7 @@ export default function Home() {
     if (!input) return;
     setLoading(true);
 
-    const updatedConversation = [
+    const updatedConversation: Conversation[] = [
       ...conversation,
       { role: "user", content: input },
     ];
@@ -139,10 +141,8 @@ export default function Home() {
     });
 
     if (data.ocean) {
-      const startOcean = { ...ocean }; // snapshot of current state before update
-
-      // Immediately update state to the target so React re-renders the new values
-      setOcean(data.ocean);
+      const startOcean = { ...ocean };
+      setOcean(data.ocean); // update state immediately
       animateOcean(data.ocean);
 
       const deltas: string[] = [];
