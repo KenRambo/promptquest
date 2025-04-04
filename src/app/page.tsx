@@ -12,7 +12,6 @@ export default function Home() {
   const [conversation, setConversation] = useState<
     { role: "user" | "assistant" | "system"; content: string }[]
   >([]);
-
   const [hasReceivedRiddle, setHasReceivedRiddle] = useState(false);
   const [riddleStage, setRiddleStage] = useState<number>(0);
 
