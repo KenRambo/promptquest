@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata = {
+export const Metadata = {
   title: "PromptQuest",
   description: "A terminal RPG for your mind.",
   icons: {

@@ -112,8 +112,8 @@ The response must look like:
     let subtype = "";
 
     const extremeThreshold = 90;
-    const extremeTraits = Object.entries(ocean).filter(
-      ([_, value]) => value >= extremeThreshold,
+    const extremeTraits = Object.values(ocean).filter(
+      (value) => value >= extremeThreshold,
     );
 
     if (extremeTraits.length >= 2) {
