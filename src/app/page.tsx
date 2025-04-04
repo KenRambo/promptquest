@@ -10,8 +10,9 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [identity, setIdentity] = useState<string | null>(null);
   const [conversation, setConversation] = useState<
-    { role: "user" | "assistant"; content: string }[]
+    { role: "user" | "assistant" | "system"; content: string }[]
   >([]);
+
   const [hasReceivedRiddle, setHasReceivedRiddle] = useState(false);
   const [riddleStage, setRiddleStage] = useState<number>(0);
 
