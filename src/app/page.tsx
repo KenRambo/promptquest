@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import PersonalitySigil from "@/components/PersonalitySigil";
+import ShareCard from "@/components/ShareCard";
 
 const logo = "/promptquest-logo.png";
 
@@ -36,43 +37,26 @@ function getEmojiForSubtype(label: string): string {
   return map[label] || "❓";
 }
 
-type Message = {
-  role: "user" | "assistant" | "system";
-  content: string;
-};
-
-type Subtype = {
-  name: string;
-  emoji: string;
-  commentary: string;
-};
-
-type Archetype = {
-  name: string;
-  emoji: string;
-};
-
 export default function Home() {
   const endOfLogRef = useRef<HTMLDivElement | null>(null);
-  const scrollToBottom = () => {
+  const scrollToBottom = () =>
     endOfLogRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
 
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [conversation, setConversation] = useState<Message[]>([]);
-  const [history, setHistory] = useState<string[]>(() => {
-    if (typeof window !== "undefined") {
-      return JSON.parse(localStorage.getItem("promptquest-history") || "[]");
-    }
-    return [];
-  });
-  const [riddleStage, setRiddleStage] = useState(() => {
-    if (typeof window !== "undefined") {
-      return parseInt(localStorage.getItem("promptquest-stage") || "0");
-    }
-    return 0;
-  });
+  const [conversation, setConversation] = useState<
+    { role: string; content: string }[]
+  >([]);
+  const [history, setHistory] = useState<string[]>(() =>
+    typeof window !== "undefined"
+      ? JSON.parse(localStorage.getItem("promptquest-history") || "[]")
+      : [],
+  );
+  const [riddleStage, setRiddleStage] = useState(() =>
+    typeof window !== "undefined"
+      ? parseInt(localStorage.getItem("promptquest-stage") || "0")
+      : 0,
+  );
   const [displayedLine, setDisplayedLine] = useState<string | null>(null);
   const [ocean, setOcean] = useState({
     Openness: 50,
@@ -81,13 +65,20 @@ export default function Home() {
     Agreeableness: 50,
     Neuroticism: 50,
   });
-  const [archetype, setArchetype] = useState<Archetype | null>(null);
-  const [subtype, setSubtype] = useState<Subtype | null>(null);
+  const [archetype, setArchetype] = useState<{
+    name: string;
+    emoji: string;
+  } | null>(null);
+  const [subtype, setSubtype] = useState<{
+    name: string;
+    emoji: string;
+    commentary: string;
+  } | null>(null);
   const [booting, setBooting] = useState(true);
   const [bootLines, setBootLines] = useState<string[]>([]);
 
-  const typewriterEffect = async (text: string) => {
-    return new Promise<void>((resolve) => {
+  const typewriterEffect = async (text: string) =>
+    new Promise<void>((resolve) => {
       let i = 0;
       const interval = setInterval(() => {
         setDisplayedLine(text.slice(0, i + 1));
@@ -98,23 +89,18 @@ export default function Home() {
         }
       }, 10);
     });
-  };
 
   const submitPrompt = async () => {
     if (!input) return;
     setLoading(true);
-
-    const updatedConversation: Message[] = [
+    const updatedConversation = [
       ...conversation,
       { role: "user", content: input },
     ];
-
     setConversation(updatedConversation);
-    setHistory((prev) => {
-      const updated = [...prev, `> ${input}`];
-      localStorage.setItem("promptquest-history", JSON.stringify(updated));
-      return updated;
-    });
+    const updatedHistory = [...history, `> ${input}`];
+    localStorage.setItem("promptquest-history", JSON.stringify(updatedHistory));
+    setHistory(updatedHistory);
 
     const res = await fetch("/api/gpt", {
       method: "POST",
@@ -129,20 +115,18 @@ export default function Home() {
 
     const data = await res.json();
     const response = data.content || "⚠️ SYSTEM ERROR: No response received.";
-
     setConversation((prev) => [
       ...prev,
       { role: "assistant", content: response },
     ]);
     await typewriterEffect(response);
     setDisplayedLine(null);
-
-    setHistory((prev) => {
-      const updated = [...prev, response];
-      localStorage.setItem("promptquest-history", JSON.stringify(updated));
-      return updated;
-    });
-
+    const updatedResponseHistory = [...updatedHistory, response];
+    localStorage.setItem(
+      "promptquest-history",
+      JSON.stringify(updatedResponseHistory),
+    );
+    setHistory(updatedResponseHistory);
     setRiddleStage((prev) => {
       const next = prev + 1;
       localStorage.setItem("promptquest-stage", next.toString());
@@ -150,7 +134,6 @@ export default function Home() {
     });
 
     if (data.ocean) setOcean(data.ocean);
-
     if (data.archetype) {
       const [main, sub] = data.archetype.split(" – ");
       setArchetype({ name: main, emoji: getEmojiForSubtype(main) });
@@ -160,7 +143,6 @@ export default function Home() {
         commentary: data.commentary ?? "No insight available.",
       });
     }
-
     setInput("");
     setLoading(false);
     scrollToBottom();
@@ -175,7 +157,6 @@ export default function Home() {
       "> WAKING ARCHETYPE ENGINE...",
       "> LINK ESTABLISHED.",
     ];
-
     let i = 0;
     const interval = setInterval(() => {
       setBootLines((prev) => [...prev, lines[i]]);
@@ -185,6 +166,7 @@ export default function Home() {
         setTimeout(() => setBooting(false), 1000);
       }
     }, 400);
+    return () => clearInterval(interval);
   }, []);
 
   return (
@@ -236,44 +218,8 @@ export default function Home() {
               <PersonalitySigil archetype={archetype?.name ?? null} />
             </div>
 
-            {archetype && subtype ? (
-              <div className="mt-6 p-4 border border-green-600 rounded bg-black shadow-lg animate-fade-in-slow">
-                <h2 className="text-xl text-green-300 font-bold mb-2">
-                  🧬 Personality Unlocked
-                </h2>
-                <div className="text-green-400 mb-1">
-                  <span className="font-semibold">Archetype:</span>{" "}
-                  {archetype.emoji} <strong>{archetype.name}</strong>
-                </div>
-                <div className="text-green-400 mb-1">
-                  <span className="font-semibold">Subtype:</span>{" "}
-                  {subtype.emoji} <strong>{subtype.name}</strong>
-                </div>
-                <p className="text-green-500 italic text-sm mb-4">
-                  “{subtype.commentary}”
-                </p>
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => {
-                      const message = `I just unlocked my archetype in PROMPTQUEST: ${archetype.name} (${subtype.name}) ${subtype.emoji} — ${subtype.commentary}`;
-                      navigator.clipboard.writeText(message);
-                      alert(
-                        "Share text copied to clipboard! Paste it on LinkedIn, X, or anywhere.",
-                      );
-                    }}
-                    className="px-3 py-1 bg-green-700 hover:bg-green-600 text-white text-sm rounded transition-all"
-                  >
-                    📤 Share Your Psyche
-                  </button>
-                  <span className="text-xs text-green-500 font-mono">
-                    Referral Code:{" "}
-                    <strong className="text-green-300">
-                      PROMPT-{subtype.name.slice(0, 3).toUpperCase()}
-                      {Math.floor(Math.random() * 900 + 100)}
-                    </strong>
-                  </span>
-                </div>
-              </div>
+            {subtype && archetype ? (
+              <ShareCard archetype={archetype} subtype={subtype} />
             ) : (
               <div className="flex justify-center mt-6 animate-pulse text-green-800 italic">
                 Personality analysis in progress...
