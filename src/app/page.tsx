@@ -222,9 +222,8 @@ export default function Home() {
                 height={160}
                 className="mx-auto mb-2 rounded shadow-lg animate-logo-flicker"
               />
-              <h1 className="text-3xl font-bold tracking-wide">PROMPTQUEST</h1>
               <p className="text-green-600 text-sm italic animate-pulse">
-                initializing psyche interface...
+                Version 0.9 Beta
               </p>
               <button
                 className="mt-4 px-3 py-1 bg-green-700 text-white rounded"
@@ -254,14 +253,6 @@ export default function Home() {
               </div>
               <PersonalitySigil archetype={archetype?.name ?? null} />
             </div>
-
-            {subtype && archetype ? (
-              <ShareCard archetype={archetype} subtype={subtype} />
-            ) : (
-              <div className="flex justify-center mt-6 animate-pulse text-green-800 italic">
-                Personality analysis in progress...
-              </div>
-            )}
 
             <div className="bg-gray-900 p-4 rounded border border-green-600 mb-4 h-[400px] overflow-y-scroll animate-fade-in-slow">
               {history.map((line, i) => (
@@ -298,6 +289,9 @@ export default function Home() {
           </>
         )}
       </div>
+      {subtype && archetype ? (
+        <ShareCard archetype={archetype} subtype={subtype} />
+      ) : null}
     </div>
   );
 }
