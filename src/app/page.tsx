@@ -1,5 +1,3 @@
-// File: src/app/page.tsx
-
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -11,14 +9,14 @@ const logo = "/promptquest-logo.png";
 
 function getEmojiForSubtype(label: string): string {
   const map: Record<string, string> = {
-    Builder: "🧱",
+    Builder: "🚱",
     Planner: "📐",
     Strategist: "♟️",
-    Executor: "🛠️",
+    Executor: "🚰",
     Dreamer: "🌙",
     Inventor: "⚙️",
     Mystic: "🔮",
-    Explorer: "🧭",
+    Explorer: "🧱",
     Performer: "🎭",
     Leader: "👑",
     Connector: "🤝",
@@ -27,9 +25,9 @@ function getEmojiForSubtype(label: string): string {
     Diplomat: "🕊️",
     Friend: "😊",
     Listener: "👂",
-    Empath: "💞",
+    Empath: "💖",
     Artist: "🎨",
-    Survivor: "🧱",
+    Survivor: "🚱",
     Shadow: "🌑",
     Undefined: "❓",
     Ascended: "✨",
@@ -47,6 +45,7 @@ export default function Home() {
   const [conversation, setConversation] = useState<
     { role: string; content: string }[]
   >([]);
+  const [sessionId, setSessionId] = useState<string>("");
   const [history, setHistory] = useState<string[]>(() =>
     typeof window !== "undefined"
       ? JSON.parse(localStorage.getItem("promptquest-history") || "[]")
@@ -77,6 +76,17 @@ export default function Home() {
   const [booting, setBooting] = useState(true);
   const [bootLines, setBootLines] = useState<string[]>([]);
 
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      let storedSession = localStorage.getItem("promptquest-session");
+      if (!storedSession) {
+        storedSession = crypto.randomUUID();
+        localStorage.setItem("promptquest-session", storedSession);
+      }
+      setSessionId(storedSession);
+    }
+  }, []);
+
   const typewriterEffect = async (text: string) =>
     new Promise<void>((resolve) => {
       let i = 0;
@@ -106,6 +116,7 @@ export default function Home() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        sessionId,
         messages: updatedConversation,
         riddleStage,
         simulationMode: true,
@@ -146,6 +157,26 @@ export default function Home() {
     setInput("");
     setLoading(false);
     scrollToBottom();
+  };
+
+  const startNewSession = () => {
+    const newSession = crypto.randomUUID();
+    localStorage.setItem("promptquest-session", newSession);
+    localStorage.removeItem("promptquest-history");
+    localStorage.setItem("promptquest-stage", "0");
+    setSessionId(newSession);
+    setConversation([]);
+    setHistory([]);
+    setRiddleStage(0);
+    setOcean({
+      Openness: 50,
+      Conscientiousness: 50,
+      Extraversion: 50,
+      Agreeableness: 50,
+      Neuroticism: 50,
+    });
+    setArchetype(null);
+    setSubtype(null);
   };
 
   useEffect(() => {
@@ -195,6 +226,12 @@ export default function Home() {
               <p className="text-green-600 text-sm italic animate-pulse">
                 initializing psyche interface...
               </p>
+              <button
+                className="mt-4 px-3 py-1 bg-green-700 text-white rounded"
+                onClick={startNewSession}
+              >
+                New Session
+              </button>
             </div>
 
             <div className="mb-4 p-4 border border-green-500 rounded animate-fade-in-slow">

@@ -3,7 +3,13 @@
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
-  const { messages, simulationMode = false } = await req.json();
+  const { messages, simulationMode = false, sessionId } = await req.json();
+
+  if (!sessionId) {
+    console.warn("⚠️ Missing sessionId in request.");
+  } else {
+    console.log(`🧾 Session: ${sessionId}`);
+  }
 
   const systemPrompt = simulationMode
     ? `You are the narrative engine behind a cyberpunk terminal RPG called PromptQuest.
